@@ -8,6 +8,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,11 +28,11 @@ import java.util.Scanner;
 public class FindAndRemoveDuplicateVideos {
     private final static String[] VIDEO_TYPE = {"mp4", "webm"};
     private final static String[] MUSIC_TYPE = {"mp3"};
-    private final static String[] IMAGE_TYPE = {"jpg", "png"};
+    private final static String[] IMAGE_TYPE = {"jpg", "png", "jpeg"};
     //是否删除
     private static boolean IS_DEL = false;
     //文件夹地址
-    private static String FOLDER_PATH = "I:\\5T tease\\video";
+    private static String FOLDER_PATH = "I:\\5T\\video";
 
     /**
      * 判断输入的地址是否是文件夹
@@ -59,7 +62,9 @@ public class FindAndRemoveDuplicateVideos {
         return totalValue / ((long) width * height);
     }
 
-    // 获取像素值的平均值
+    /**
+     * 获取像素值的平均值
+     */
     private static long getPixelValue(int pixel) {
         int red = (pixel >> 16) & 0xFF;
         int green = (pixel >> 8) & 0xFF;
@@ -136,6 +141,30 @@ public class FindAndRemoveDuplicateVideos {
     private static void findAndRemoveDuplicateVideos(String folderPath, Map<Long, File> videoMap, Map<Long, File> imageMap, Map<Long, File> imageHashMap, Map<Long, File> fileSizeMap, Boolean isDel, int count) throws IOException, InterruptedException {
         File folder = new File(folderPath);
         File[] files = folder.listFiles();
+        Connection conn = null;
+
+        try {
+
+            String url = "jdbc:mysql://127.0.0.1:3306/ls_zhongda";
+            String sqlUser = "root";
+            String sqlPwd = "La552157.@";
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            conn = DriverManager.getConnection(url, sqlUser, sqlPwd);
+            String sql = "select * from sys_user where id = 0";
+            CallableStatement callableStatement = conn.prepareCall(sql);
+            System.out.println("callableStatement = " + callableStatement);
+            System.out.println("Database connection established");
+        } catch (Exception e) {
+            e.printStackTrace();
+
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.close();
+                    System.out.println("Database connection terminated");
+                } catch (Exception e) { /* ignore close errors */ }
+            }
+        }
 
         if (files != null) {
             for (File file : files) {
@@ -146,61 +175,42 @@ public class FindAndRemoveDuplicateVideos {
                     //文件没有时长
                     if (duration != -1) {
                         //文件路径
-                        String absolutePath = file.getAbsolutePath();
+                        String filePath = file.getAbsolutePath();
                         //文件大小
-                        long length = file.length();
+                        long fileLength = file.length();
+                        String fileName = file.getName();
+//                        if (videoMap.containsKey(duration) && fileSizeMap.containsKey(length)) {
+//                            //Map中的文件
+//                            File file1 = videoMap.get(duration);
+//                            //文件大小
+//                            long length1 = file1.length();
+//                            Long duration1 = getVideoDuration(file1);
+//                            System.out.println("\033[35m重复视频名: " + file1.getAbsolutePath() + ",文件大小: " + length1 / 1024 / 1024 + "MB, 时长: " + duration1 + " 秒\033[35m");
+//                            //视频长度获取
+//
+//                            //获取文件信息
+//                            String output = getVideoInfo(file);
+//                            System.out.println("VideoOutput = " + output);
+//                            long bitrate = getVideoBitrate(file);
+//                            long bitrate1 = getVideoBitrate(file1);
+//                            System.out.println("bitrate = " + bitrate + " bitrate1 = " + bitrate1);
+//                            System.out.println("\033[33m对象中视频: " + file.getAbsolutePath() + ",文件大小: " + length / 1024 / 1024 + "MB, 时长: " + duration + " 秒\033[33m");
+//                            if (bitrate == bitrate1) {
+//                                System.out.println("\033[31m已删除视频: " + file.getAbsolutePath() + ",文件大小: " + length / 1024 / 1024 + "MB, 时长: " + duration + " 秒\033[31m");
+//                                //处理删除文件
+//                                if (isDel) {
+//                                    count++;
+//                                    Files.delete(file.toPath());
+//                                }
+//                            }
+//                        } else {
 
-                        if (videoMap.containsKey(duration) && fileSizeMap.containsKey(length)) {
-                            //Map中的文件
-                            File file1 = videoMap.get(duration);
-                            //文件大小
-                            long length1 = file1.length();
-                            Long duration1 = getVideoDuration(file1);
-                            System.out.println("\033[35m重复视频名: " + file1.getAbsolutePath() + ",文件大小: " + length1 / 1024 / 1024 + "MB, 时长: " + duration1 + " 秒\033[35m");
 
-                            long bitrate = getVideoBitrate(file);
-                            long bitrate1 = getVideoBitrate(file1);
-                            System.out.println("bitrate = " + bitrate + " bitrate1 = " + bitrate1);
-                            System.out.println("\033[33m对象中视频: " + file.getAbsolutePath() + ",文件大小: " + length / 1024 / 1024 + "MB, 时长: " + duration + " 秒\033[33m");
-                            if (bitrate == bitrate1) {
-                                System.out.println("\033[31m已删除视频: " + file.getAbsolutePath() + ",文件大小: " + length / 1024 / 1024 + "MB, 时长: " + duration + " 秒\033[31m");
-                                //处理删除文件
-                                if (isDel) {
-                                    count++;
-                                    Files.delete(file.toPath());
-                                }
-                            }
-                        } else {
-                            //添加到map中
-                            videoMap.put(duration, file);
-                            fileSizeMap.put(length, file);
-                            System.out.println("\033[32m视频文件: " + absolutePath + ",文件大小: " + length / 1024 / 1024 + "MB, 时长: " + duration + " 秒\033[32m");
-                        }
                     }
                 } else if (file.isFile() && isMusicFile(file)) {
-                    // 使用 ProcessBuilder 明确指定环境变量
-                    ProcessBuilder processBuilder = new ProcessBuilder("ffmpeg", "-i", file.getAbsolutePath());
-                    processBuilder.redirectErrorStream(true);
-                    Process process = processBuilder.start();
-
-                    // 使用 BufferedReader 读取 FFmpeg 输出
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                        String line;
-                        StringBuilder outputBuilder = new StringBuilder();
-
-                        // 查找包含时长信息的输出行
-                        while ((line = reader.readLine()) != null) {
-                            outputBuilder.append(line).append("\n");
-                            if (line.contains("Duration:")) {
-                                break;
-                            }
-                        }
-                        process.waitFor();
-
-                        // 处理 FFmpeg 输出
-                        String output = outputBuilder.toString().trim();
-                        System.out.println("output = " + output);
-                    }
+                    //获取文件信息
+                    String output = getVideoInfo(file);
+                    System.out.println("musicOutput = " + output);
                 } else if (file.isFile() && isImageFile(file)) {
                     //文件大小
                     long length = file.length();
@@ -213,14 +223,14 @@ public class FindAndRemoveDuplicateVideos {
                             Files.delete(file.toPath());
                         }
                     } else {
-                        // 读取图像文件并缩小为 8x8 大小
+                        //读取图像文件并缩小为 8x8 大小
                         BufferedImage image = Thumbnails.of(file).size(8, 8).asBufferedImage();
 
                         // 计算图像的平均哈希值
                         long hash = calculateAverageHash(image);
                         System.out.println("hash = " + hash);
                         //添加到map中
-                        System.out.println("\033[37m图片文件名: " + file + "\033[37m");
+//                        System.out.println("\033[37m图片文件名: " + file + "\033[37m");
                         imageMap.put(length, file);
 
                         if (imageHashMap.containsKey(hash)) {
@@ -234,10 +244,10 @@ public class FindAndRemoveDuplicateVideos {
                     findAndRemoveDuplicateVideos(file.getAbsolutePath(), videoMap, imageMap, imageHashMap, fileSizeMap, isDel, count);
                 }
             }
-            System.out.println("\033[31mfileMap = " + videoMap.size() + "\033[31m");
-            System.out.println("\033[31mimageMap = " + imageMap.size() + "\033[31m");
-            System.out.println("\033[31mfileSizeMap = " + fileSizeMap.size() + "\033[31m");
-            System.out.println("\033[31mcount = " + count + "\033[31m");
+//            System.out.println("\033[31mfileMap = " + videoMap.size() + "\033[31m");
+//            System.out.println("\033[31mimageMap = " + imageMap.size() + "\033[31m");
+//            System.out.println("\033[31mfileSizeMap = " + fileSizeMap.size() + "\033[31m");
+//            System.out.println("\033[31mcount = " + count + "\033[31m");
         }
     }
 
@@ -300,6 +310,37 @@ public class FindAndRemoveDuplicateVideos {
      * @throws InterruptedException
      */
     private static long getVideoDuration(File videoFile) throws IOException, InterruptedException {
+        //获取文件信息
+        String output = getVideoInfo(videoFile);
+//            System.out.println("output = " + output);
+        // 查找包含时长信息的输出行
+        int durationIndex = output.indexOf("Duration:");
+        if (durationIndex != -1) {
+            String durationInfo = output.substring(durationIndex + "Duration:".length(), output.indexOf(",", durationIndex));
+            String[] timeComponents = durationInfo.trim().split(":");
+            return Integer.parseInt(timeComponents[0]) * 3600L + Integer.parseInt(timeComponents[1]) * 60L + (long) Math.floor(Double.parseDouble(timeComponents[2]));
+        } else {
+            // 没有找到时长信息
+            return -1;
+        }
+    }
+
+    /**
+     * 获取文件比特率
+     *
+     * @param videoFile 视频文件
+     * @return 文件时长
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private static long getVideoBitrate(File videoFile) throws IOException, InterruptedException {
+        //获取文件信息
+        String output = getVideoInfo(videoFile);
+        //输出比特率信息
+        return output.indexOf("bitrate:");
+    }
+
+    private static String getVideoInfo(File videoFile) throws IOException, InterruptedException {
         // 使用 ProcessBuilder 明确指定环境变量
         ProcessBuilder processBuilder = new ProcessBuilder("ffmpeg", "-i", videoFile.getAbsolutePath());
         processBuilder.redirectErrorStream(true);
@@ -321,53 +362,8 @@ public class FindAndRemoveDuplicateVideos {
 
             // 处理 FFmpeg 输出
             String output = outputBuilder.toString().trim();
-//            System.out.println("output = " + output);
-            // 查找包含时长信息的输出行
-            int durationIndex = output.indexOf("Duration:");
-            if (durationIndex != -1) {
-                String durationInfo = output.substring(durationIndex + "Duration:".length(), output.indexOf(",", durationIndex));
-                String[] timeComponents = durationInfo.trim().split(":");
-                return Integer.parseInt(timeComponents[0]) * 3600L + Integer.parseInt(timeComponents[1]) * 60L + (long) Math.floor(Double.parseDouble(timeComponents[2]));
-            } else {
-                // 没有找到时长信息
-                return -1;
-            }
-        }
-    }
-
-    /**
-     * 获取文件比特率
-     *
-     * @param videoFile 视频文件
-     * @return 文件时长
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    private static long getVideoBitrate(File videoFile) throws IOException, InterruptedException {
-        // 使用 ProcessBuilder 明确指定环境变量
-        ProcessBuilder processBuilder = new ProcessBuilder("ffmpeg", "-i", videoFile.getAbsolutePath());
-        processBuilder.redirectErrorStream(true);
-        Process process = processBuilder.start();
-
-        // 使用 BufferedReader 读取 FFmpeg 输出
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            StringBuilder outputBuilder = new StringBuilder();
-
-            // 查找包含时长信息的输出行
-            while ((line = reader.readLine()) != null) {
-                outputBuilder.append(line).append("\n");
-                if (line.contains("bitrate:")) {
-                    break;
-                }
-            }
-            process.waitFor();
-
-            // 处理 FFmpeg 输出
-            String output = outputBuilder.toString().trim();
             System.out.println("output = " + output);
-            //输出比特率信息
-            return output.indexOf("bitrate:");
+            return output;
         }
     }
 }
